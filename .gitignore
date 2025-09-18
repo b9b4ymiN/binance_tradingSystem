@@ -121,3 +121,319 @@ ipython_config.py
 *.pem
 *.key
 *.crt
+
+# Trading System Specific
+# ======================
+
+# API Keys & Secrets
+binance_api_key.txt
+binance_secret.txt
+webhook_secret.txt
+api_keys/
+secrets/
+credentials/
+*.secret
+
+# Trading Data & Models
+models/
+*.pkl
+*.h5
+*.model
+*.joblib
+*.sav
+training_data/
+historical_data/
+backtest_results/
+*.csv
+*.json.bak
+*.parquet
+
+# Database Files
+trading_data.db*
+trading_bot.db*
+performance.db*
+risk_metrics.db*
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+
+# Log Files
+trading_bot.log*
+trading_*.log
+monitor.log*
+error.log*
+debug.log*
+api_*.log
+webhook_*.log
+logs/
+*.log.*
+*.log.gz
+
+# Docker & Production
+docker-compose.production.yml
+docker-compose.local.yml
+docker-compose.override.yml
+Dockerfile.prod
+.dockerignore
+*.dockerfile
+
+# Monitoring & Metrics
+prometheus_data/
+grafana_data/
+redis_data/
+monitoring_scripts/
+*.monitoring
+
+# ML & AI Specific
+# ================
+
+# TensorFlow / Keras
+*.h5
+*.hdf5
+*.pb
+saved_model/
+checkpoints/
+tensorboard_logs/
+tf_logs/
+
+# Scikit-learn models
+*.pkl
+*.joblib
+model_*.sav
+
+# Training artifacts
+feature_importance/
+model_evaluation/
+training_logs/
+validation_results/
+hyperparameter_search/
+
+# Data preprocessing
+preprocessed_data/
+feature_data/
+scaled_data/
+encoded_data/
+*.npy
+*.npz
+
+# Jupyter notebooks (keep .ipynb but ignore outputs)
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+*.ipynb.bak
+
+# Research & experiments
+experiments/
+research/
+notebooks/output/
+plots/
+figures/
+*.png
+*.jpg
+*.pdf
+*.svg
+
+# Cache directories
+.cache/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+
+# IDE specific files
+# ==================
+
+# VS Code
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+.vscode/c_cpp_properties.json
+.vscode/extensions.json
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.vimrc.local
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# System Files
+# ============
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# Temporary files
+# ===============
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*.orig
+*.rej
+*~
+temp/
+tmp/
+.temporary/
+
+# Backup files
+backup/
+backups/
+*.backup
+*_backup
+*_bak
+
+# Test files & artifacts
+# ======================
+test_data/
+test_results/
+test_reports/
+coverage/
+.coverage*
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+nose2-junit.xml
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+
+# Performance & Profiling
+# =======================
+*.prof
+*.pstats
+profile_results/
+profiling/
+benchmark_results/
+
+# Documentation build
+# ===================
+docs/_build/
+docs/build/
+site/
+_site/
+
+# Package managers
+# ================
+
+# npm/node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# Conda
+.conda/
+
+# Local configuration overrides
+# =============================
+config/local/
+local_config/
+*local.py
+*_local.py
+local_*.py
+config_local.py
+settings_local.py
+
+# Pine Script files (keep source, ignore compiled)
+*.pine.compiled
+
+# Webhook test files
+webhook_test.json
+test_webhook_*.json
+
+# Performance testing
+load_test_results/
+stress_test_results/
+
+# SSL certificates for production
+ssl/
+certificates/
+*.crt
+*.key
+*.pem
+
+# Environment-specific overrides
+.env.local
+.env.development
+.env.testing
+.env.production
+.env.staging
+
+# Cloud deployment files
+.aws/
+.gcp/
+.azure/
+terraform.tfstate*
+*.terraform/
+
+# Monitoring configuration
+prometheus.yml.local
+grafana.ini.local
+alert_rules.yml.local
+
+# Custom user additions
+# ======================
+# Add your custom ignores below this line
+user_data/
+personal_configs/
+my_*.py
+custom_strategies/
