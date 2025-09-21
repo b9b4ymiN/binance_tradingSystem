@@ -25,6 +25,19 @@ A comprehensive, modular cryptocurrency trading system designed specifically for
 
 ## 🏗️ Architecture
 
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Nginx (80)    │────│ Dashboard (3000) │────│  Trading API    │
+│  Reverse Proxy  │    │    Next.js       │    │  Flask (5001)   │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+                                │                        │
+                                │                        │
+                         ┌──────▼──────┐        ┌──────▼──────┐
+                         │   Browser   │        │ Trading DB  │
+                         │   Client    │        │   SQLite    │
+                         └─────────────┘        └─────────────┘
+```
+
 ### Modular Structure
 ```
 trading_system/
@@ -107,8 +120,11 @@ train_model('BTCUSDT')
 train_model('ETHUSDT')
 "
 
-# Run comprehensive tests
-python -m testing.test_runner
+# Run automated tests (unit + integration)
+pytest
+
+# Focus on dashboard integration coverage
+pytest tests/integration/dashboard -v
 
 # Start with ML-enhanced trading
 python -c "
@@ -297,10 +313,10 @@ for symbol, result in results.items():
 
 ### Testing & Validation
 - **Unit Testing**: Comprehensive component testing
+- **Integration Tests**: Dashboard API coverage via pytest (`tests/integration/dashboard/`)
 - **Backtesting Engine**: Strategy validation using historical data
 - **Stress Testing**: System performance under load
 - **Performance Testing**: API latency, database performance, memory usage
-
 ## 📚 Documentation
 
 Detailed documentation available in `/docs/`:
@@ -403,3 +419,5 @@ This project is licensed under the MIT License - see LICENSE file for details.
 ---
 
 **Built for crypto traders seeking professional-grade automated trading solutions.**
+
+

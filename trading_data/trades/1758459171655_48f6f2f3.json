@@ -1,0 +1,22 @@
+{
+  "id": "1758459171655_48f6f2f3",
+  "timestamp": "2025-09-21T19:52:51.655178",
+  "symbol": "DOTUSDT",
+  "side": "BUY",
+  "quantity": 46.25,
+  "price": 4.322,
+  "order_id": "597693",
+  "strategy": "rsi_bollinger_scalping",
+  "status": "FILLED",
+  "commission": 0.0,
+  "realized_pnl": 0,
+  "fills": [
+    {
+      "price": "4.32200000",
+      "qty": "46.25000000",
+      "commission": "0.00000000",
+      "commissionAsset": "DOT",
+      "tradeId": 25342
+    }
+  ]
+}

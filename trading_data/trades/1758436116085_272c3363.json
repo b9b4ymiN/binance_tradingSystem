@@ -1,0 +1,22 @@
+{
+  "id": "1758436116085_272c3363",
+  "timestamp": "2025-09-21T13:28:36.085467",
+  "symbol": "ADAUSDT",
+  "side": "BUY",
+  "quantity": 111.0,
+  "price": 0.9006,
+  "order_id": "771969",
+  "strategy": "rsi_bollinger_scalping",
+  "status": "FILLED",
+  "commission": 0.0,
+  "realized_pnl": 0,
+  "fills": [
+    {
+      "price": "0.90060000",
+      "qty": "111.00000000",
+      "commission": "0.00000000",
+      "commissionAsset": "ADA",
+      "tradeId": 29993
+    }
+  ]
+}

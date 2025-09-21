@@ -1,0 +1,22 @@
+{
+  "id": "1758463393997_63e1341f",
+  "timestamp": "2025-09-21T21:03:13.997053",
+  "symbol": "ADAUSDT",
+  "side": "SELL",
+  "quantity": 224.9,
+  "price": 0.8889,
+  "order_id": "784909",
+  "strategy": "rsi_bollinger_scalping",
+  "status": "FILLED",
+  "commission": 0.0,
+  "realized_pnl": 0,
+  "fills": [
+    {
+      "price": "0.88890000",
+      "qty": "224.90000000",
+      "commission": "0.00000000",
+      "commissionAsset": "USDT",
+      "tradeId": 30272
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "id": "1758463392180_a91d59a2",
+  "timestamp": "2025-09-21T21:03:12.180962",
+  "symbol": "BTCUSDT",
+  "side": "SELL",
+  "quantity": 0.00172,
+  "price": 115691.14,
+  "order_id": "2290150",
+  "strategy": "rsi_bollinger_scalping",
+  "status": "FILLED",
+  "commission": 0.0,
+  "realized_pnl": 0,
+  "fills": [
+    {
+      "price": "115691.14000000",
+      "qty": "0.00172000",
+      "commission": "0.00000000",
+      "commissionAsset": "USDT",
+      "tradeId": 622089
+    }
+  ]
+}

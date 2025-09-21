@@ -56,6 +56,7 @@ class BreakoutSwingStrategy(BaseStrategy):
             return {
                 'action': 'buy',
                 'symbol': symbol,
+                'price': entry_price,
                 'entry_price': entry_price,
                 'stop_loss': stop_loss,
                 'take_profit': take_profit,

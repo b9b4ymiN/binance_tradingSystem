@@ -42,9 +42,30 @@ def main():
     # Start automated trading
     trading_engine.start_auto_trading()
     
-    # Start webhook server
-    try:
+    # Start webhook server and dashboard API in separate threads
+    from threading import Thread
+
+    def start_webhook_server():
         trading_engine.webhook_handler.run(host='0.0.0.0', port=5000)
+
+    def start_dashboard_api():
+        trading_engine.dashboard_api.run(host='0.0.0.0', port=5001)
+
+    try:
+        # Start servers in separate threads
+        webhook_thread = Thread(target=start_webhook_server, daemon=True)
+        dashboard_thread = Thread(target=start_dashboard_api, daemon=True)
+
+        webhook_thread.start()
+        dashboard_thread.start()
+
+        logger.info("Trading system started successfully")
+        logger.info("Webhook server running on port 5000")
+        logger.info("Dashboard API running on port 5001")
+
+        # Keep main thread alive
+        webhook_thread.join()
+
     except KeyboardInterrupt:
         logger.info("Shutting down trading system...")
         trading_engine.stop_trading()

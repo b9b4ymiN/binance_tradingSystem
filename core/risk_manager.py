@@ -92,9 +92,9 @@ class RiskManager:
         with self.db_manager.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT symbol, SUM(quantity) as total_quantity, AVG(price) as avg_price
+                SELECT symbol, SUM(CASE WHEN side = 'BUY' THEN quantity ELSE -quantity END) as total_quantity, AVG(price) as avg_price
                 FROM trades 
-                WHERE status = 'filled' 
+                WHERE status = 'FILLED' 
                 GROUP BY symbol 
                 HAVING total_quantity != 0
             ''')
@@ -119,6 +119,6 @@ class RiskManager:
             cursor = conn.cursor()
             cursor.execute('''
                 SELECT COUNT(*) FROM trades 
-                WHERE DATE(timestamp) = ? AND status = 'filled'
+                WHERE DATE(timestamp) = ? AND status = 'FILLED'
             ''', (today,))
             return cursor.fetchone()[0]

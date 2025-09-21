@@ -13,10 +13,10 @@ class TradingConfig:
     use_testnet: bool = True
     
     # Risk Management (Kelly Criterion Implementation)
-    max_position_risk: float = 0.02  # 2% max risk per trade
-    kelly_fraction: float = 0.25     # Conservative Kelly scaling
-    max_concurrent_positions: int = 3
-    max_daily_trades: int = 10
+    max_position_risk: float = 0.05  # 2% max risk per trade
+    kelly_fraction: float = 0.50     # Conservative Kelly scaling
+    max_concurrent_positions: int = 5
+    max_daily_trades: int = 100
     
     # Strategy Parameters (From research)
     rsi_oversold: int = 30

@@ -1,0 +1,22 @@
+{
+  "id": "1758452859478_9d5df57b",
+  "timestamp": "2025-09-21T18:07:39.478196",
+  "symbol": "ETHUSDT",
+  "side": "SELL",
+  "quantity": 0.0447,
+  "price": 4466.0,
+  "order_id": "2408303",
+  "strategy": "rsi_bollinger_scalping",
+  "status": "FILLED",
+  "commission": 0.0,
+  "realized_pnl": 0,
+  "fills": [
+    {
+      "price": "4466.00000000",
+      "qty": "0.04470000",
+      "commission": "0.00000000",
+      "commissionAsset": "USDT",
+      "tradeId": 309676
+    }
+  ]
+}

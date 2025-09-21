@@ -64,8 +64,8 @@ class PerformanceMonitor:
                 # Calculate daily PnL
                 today = datetime.now().date()
                 cursor.execute('''
-                    SELECT COALESCE(SUM(pnl), 0) FROM trades
-                    WHERE DATE(timestamp) = ? AND status = 'filled'
+                    SELECT COALESCE(SUM(realized_pnl), 0) FROM trades
+                    WHERE DATE(timestamp) = ? AND status = 'FILLED'
                 ''', (today,))
                 daily_pnl = cursor.fetchone()[0]
                 self.metrics.daily_pnl.set(daily_pnl)
@@ -73,10 +73,10 @@ class PerformanceMonitor:
                 # Calculate win rate (last 100 trades)
                 cursor.execute('''
                     SELECT COUNT(*) as total,
-                           SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as wins
+                           SUM(CASE WHEN realized_pnl > 0 THEN 1 ELSE 0 END) as wins
                     FROM (
-                        SELECT pnl FROM trades
-                        WHERE status = 'filled' AND pnl != 0
+                        SELECT realized_pnl FROM trades
+                        WHERE status = 'FILLED' AND realized_pnl != 0
                         ORDER BY timestamp DESC LIMIT 100
                     )
                 ''')
@@ -87,8 +87,8 @@ class PerformanceMonitor:
 
                 # Calculate current drawdown
                 cursor.execute('''
-                    SELECT pnl FROM trades
-                    WHERE status = 'filled'
+                    SELECT realized_pnl FROM trades
+                    WHERE status = 'FILLED'
                     ORDER BY timestamp DESC LIMIT 50
                 ''')
                 recent_pnls = [row[0] for row in cursor.fetchall()]
@@ -112,7 +112,7 @@ class PerformanceMonitor:
                 # Count open positions
                 cursor.execute('''
                     SELECT COUNT(DISTINCT symbol) FROM trades
-                    WHERE status = 'filled'
+                    WHERE status = 'FILLED'
                     GROUP BY symbol
                     HAVING SUM(CASE WHEN side = 'BUY' THEN quantity ELSE -quantity END) != 0
                 ''')

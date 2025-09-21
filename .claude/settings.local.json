@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(npx create-next-app:*)",
+      "Bash(python test_robust_db.py:*)",
+      "Bash(python test_lockless_storage.py)",
+      "Bash(python test_binance_fixes.py:*)",
+      "Bash(python test_dashboard_lockless.py)",
+      "Bash(python:*)",
+      "Bash(sqlite3:*)"
     ],
     "deny": [],
     "ask": []

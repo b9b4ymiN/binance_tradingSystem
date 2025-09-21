@@ -1,7 +1,7 @@
 param(
     [string]$Scenario = "rsi_buy",
     [string]$EnvFile = ".env",
-    [string]$WebhookUrl = "http://127.0.0.1:5000/webhook"
+    [string]$WebhookUrl = "http://crypto-dasimoa.duckdns.org/webhook"
 )
 
 function Load-EnvFile {

@@ -380,6 +380,14 @@ yarn-error.log*
 .yarn/build-state.yml
 .yarn/install-state.gz
 
+# Next.js / frontend builds
+.next/
+dashboard/.next/
+dashboard/out/
+.turbo/
+.vercel/
+*.tsbuildinfo
+
 # Conda
 .conda/
 
@@ -437,3 +445,7 @@ user_data/
 personal_configs/
 my_*.py
 custom_strategies/
+
+# Test python
+./tests
+tests/
