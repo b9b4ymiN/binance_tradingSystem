@@ -30,6 +30,7 @@ class TradingEngine:
         self.lockless_storage = get_lockless_storage("trading_data")
         self.binance_api = BinanceAPI(config)
         self.risk_manager = RiskManager(config, self.db_manager)
+        self.risk_manager.binance_api = self.binance_api  # Set API reference
         
         # Initialize strategies
         self.rsi_bollinger_strategy = RSIBollingerStrategy(config, self.binance_api, self.risk_manager)
@@ -98,9 +99,9 @@ class TradingEngine:
 
             # Check risk limits
             position_risk = abs(price - stop_loss) / price * position_size * price
-            logger.info(f"Position risk: {position_risk}, Size: {position_size}")
-            #if not self.risk_manager.check_risk_limits(position_risk):
-            #    return {'error': 'Position exceeds risk limits'}
+            logger.info(f"Position risk: ${position_risk:.2f}, Size: {position_size}")
+            if not self.risk_manager.check_risk_limits(position_risk):
+                return {'error': 'Position exceeds risk limits'}
 
             # Check account balance before placing order
             balance_check = self._check_sufficient_balance(symbol, action, position_size, price)

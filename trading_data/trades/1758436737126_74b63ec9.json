@@ -9,7 +9,7 @@
   "strategy": "rsi_bollinger_scalping",
   "status": "FILLED",
   "commission": 0.0,
-  "realized_pnl": 0,
+  "realized_pnl": -0.12159281999998958,
   "fills": [
     {
       "price": "115728.59000000",

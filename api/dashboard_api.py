@@ -219,9 +219,28 @@ class DashboardAPI:
                 self.trading_engine._update_daily_performance()
                 self.trading_engine._sync_portfolio_to_database()
 
-                return jsonify({'message': 'Dashboard data refreshed successfully'})
+                # Sync P&L data from database to lockless storage
+                synced_count = self.lockless_storage.sync_pnl_from_database(self.db_manager)
+
+                return jsonify({
+                    'message': 'Dashboard data refreshed successfully',
+                    'synced_pnl_records': synced_count
+                })
             except Exception as e:
                 logger.error(f"Error refreshing dashboard: {e}")
+                return jsonify({'error': str(e)}), 500
+
+        @self.app.route('/api/dashboard/sync-pnl', methods=['POST'])
+        def sync_pnl_data():
+            """Sync P&L data from database to lockless storage"""
+            try:
+                synced_count = self.lockless_storage.sync_pnl_from_database(self.db_manager)
+                return jsonify({
+                    'message': 'P&L data synchronized successfully',
+                    'records_updated': synced_count
+                })
+            except Exception as e:
+                logger.error(f"Error syncing P&L data: {e}")
                 return jsonify({'error': str(e)}), 500
 
     @cached(ttl_seconds=30, key_prefix="perf_")
@@ -246,11 +265,24 @@ class DashboardAPI:
                 if perf_result and perf_result[0] is not None:
                     total_pnl, total_trades, avg_win_rate, max_drawdown = perf_result
                 else:
-                    # Fallback to lockless calculation if no performance data
-                    lockless_metrics = self.lockless_storage.calculate_performance_metrics()
-                    total_pnl = lockless_metrics.get('total_pnl', 0)
-                    total_trades = lockless_metrics.get('total_trades', 0)
-                    avg_win_rate = lockless_metrics.get('win_rate', 0)
+                    # Fallback to direct database calculation if no performance data
+                    cursor.execute("""
+                        SELECT
+                            SUM(realized_pnl) as total_pnl,
+                            COUNT(*) as total_trades,
+                            SUM(CASE WHEN realized_pnl > 0 THEN 1 ELSE 0 END) as winning_trades
+                        FROM trades
+                        WHERE status = 'FILLED'
+                    """)
+                    fallback_result = cursor.fetchone()
+                    if fallback_result:
+                        total_pnl, total_trades, winning_trades = fallback_result
+                        total_pnl = total_pnl or 0
+                        total_trades = total_trades or 0
+                        winning_trades = winning_trades or 0
+                        avg_win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
+                    else:
+                        total_pnl, total_trades, avg_win_rate = 0, 0, 0
                     max_drawdown = 0
 
                 # Get today's performance
@@ -300,9 +332,22 @@ class DashboardAPI:
             positions = self._get_current_positions_from_db()
             total_market_value = sum(abs(pos['quantity']) * pos['avg_price'] for pos in positions)
 
-            # Calculate portfolio value (simplified - starting balance + P&L)
-            portfolio_value = 10000 + total_pnl  # Assuming $10k starting balance
-            available_balance = portfolio_value * 0.8  # 80% available for trading
+            # Get real portfolio value from account balance
+            try:
+                account_balance_data = self._get_account_balance()
+                portfolio_value = account_balance_data.get('total_value_usdt', 0)
+                # Calculate available balance (assume 80% of USDT balance + 20% of portfolio value)
+                usdt_balance = 0
+                for balance in account_balance_data.get('balances', []):
+                    if balance.get('asset') == 'USDT':
+                        usdt_balance = balance.get('total', 0)
+                        break
+                available_balance = usdt_balance + (portfolio_value - usdt_balance) * 0.2
+            except Exception as e:
+                logger.warning(f"Failed to get real account balance, using fallback: {e}")
+                # Fallback calculation
+                portfolio_value = 10000 + total_pnl
+                available_balance = portfolio_value * 0.8
 
             # Calculate Sharpe ratio (simplified)
             sharpe_ratio = 0
@@ -331,6 +376,16 @@ class DashboardAPI:
             # Fallback to lockless storage
             try:
                 lockless_metrics = self.lockless_storage.calculate_performance_metrics()
+
+                # Try to get real portfolio value even in fallback
+                try:
+                    account_balance_data = self._get_account_balance()
+                    fallback_portfolio_value = account_balance_data.get('total_value_usdt', 10000)
+                    fallback_available_balance = fallback_portfolio_value * 0.8
+                except:
+                    fallback_portfolio_value = 10000
+                    fallback_available_balance = 8000
+
                 return {
                     'total_pnl': round(lockless_metrics.get('total_pnl', 0), 2),
                     'daily_pnl': 0,
@@ -342,8 +397,8 @@ class DashboardAPI:
                     'avg_loss': 0,
                     'max_drawdown': 0,
                     'sharpe_ratio': 0,
-                    'portfolio_value': 10000,
-                    'available_balance': 8000,
+                    'portfolio_value': round(fallback_portfolio_value, 2),
+                    'available_balance': round(fallback_available_balance, 2),
                     'total_market_value': 0,
                     'positions_count': 0,
                     'daily_trades': 0

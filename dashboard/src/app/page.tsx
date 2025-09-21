@@ -70,7 +70,7 @@ export default function DashboardPage() {
         <MetricCard
           title="Portfolio Value"
           value={performance.portfolio_value}
-          change={performance.daily_pnl / performance.portfolio_value * 100}
+          change={performance.portfolio_value > 0 ? (performance.daily_pnl / performance.portfolio_value * 100) : 0}
           changeType="percentage"
           loading={loading}
           icon={<span className="text-2xl">📊</span>}

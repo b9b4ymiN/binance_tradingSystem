@@ -1,0 +1,22 @@
+{
+  "id": "1758468090034_a6d09c11",
+  "timestamp": "2025-09-21T22:21:30.034461",
+  "symbol": "ETHUSDT",
+  "side": "BUY",
+  "quantity": 0.5362,
+  "price": 4483.66,
+  "order_id": "2423579",
+  "strategy": "position_closer",
+  "status": "FILLED",
+  "commission": 0.0,
+  "realized_pnl": 2460.471663999069,
+  "fills": [
+    {
+      "price": "4483.66000000",
+      "qty": "0.53620000",
+      "commission": "0.00000000",
+      "commissionAsset": "ETH",
+      "tradeId": 311330
+    }
+  ]
+}

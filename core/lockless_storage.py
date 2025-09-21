@@ -48,20 +48,26 @@ class LocklessTradingStorage:
                     avg_price = float(order_result.get('price', 0))
                 commission = 0
 
+            # Calculate realized P&L before logging
+            symbol = order_result.get('symbol')
+            side = order_result.get('side')
+            quantity = float(order_result.get('executedQty', 0))
+            realized_pnl = self._calculate_realized_pnl(symbol, side, quantity, avg_price)
+
             # Create trade record
             trade_id = f"{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
             trade_data = {
                 'id': trade_id,
                 'timestamp': datetime.now().isoformat(),
-                'symbol': order_result.get('symbol'),
-                'side': order_result.get('side'),
-                'quantity': float(order_result.get('executedQty', 0)),
+                'symbol': symbol,
+                'side': side,
+                'quantity': quantity,
                 'price': avg_price,
                 'order_id': str(order_result.get('orderId')),
                 'strategy': signal_data.get('strategy', 'manual'),
                 'status': order_result.get('status', 'PENDING').upper(),
                 'commission': commission,
-                'realized_pnl': 0,
+                'realized_pnl': realized_pnl,
                 'fills': fills
             }
 
@@ -79,6 +85,45 @@ class LocklessTradingStorage:
         except Exception as e:
             logger.error(f"Failed to log trade: {e}")
             raise
+
+    def _calculate_realized_pnl(self, symbol: str, side: str, quantity: float, price: float) -> float:
+        """Calculate realized P&L for a trade based on current position"""
+        try:
+            portfolio_file = self.portfolio_dir / f"{symbol}.json"
+
+            # Read current position
+            current_position = {'quantity': 0, 'avg_price': 0}
+            if portfolio_file.exists():
+                try:
+                    with open(portfolio_file, 'r') as f:
+                        current_position = json.load(f)
+                except:
+                    pass
+
+            current_qty = current_position.get('quantity', 0)
+            current_avg_price = current_position.get('avg_price', 0)
+
+            realized_pnl = 0.0
+
+            if side.upper() == 'BUY':
+                if current_qty < 0:
+                    # Closing short position (partial or full)
+                    close_qty = min(quantity, abs(current_qty))
+                    realized_pnl = close_qty * (current_avg_price - price)  # Profit when price drops
+                    logger.info(f"SHORT close: {close_qty} units @ {price}, avg: {current_avg_price}, P&L: ${realized_pnl:.4f}")
+            elif side.upper() == 'SELL':
+                if current_qty > 0:
+                    # Closing long position (partial or full)
+                    close_qty = min(quantity, current_qty)
+                    realized_pnl = close_qty * (price - current_avg_price)  # Profit when price rises
+                    logger.info(f"LONG close: {close_qty} units @ {price}, avg: {current_avg_price}, P&L: ${realized_pnl:.4f}")
+
+            logger.debug(f"P&L calculation: {symbol} {side} {quantity} @ {price} -> ${realized_pnl:.4f}")
+            return realized_pnl
+
+        except Exception as e:
+            logger.error(f"Failed to calculate realized P&L: {e}")
+            return 0.0
 
     def _update_portfolio_atomic(self, trade_data: Dict):
         """Update portfolio position atomically"""
@@ -228,6 +273,47 @@ class LocklessTradingStorage:
                 removed_count += 1
 
         logger.info(f"Cleaned up {removed_count} old trade files")
+
+    def sync_pnl_from_database(self, db_manager):
+        """Sync P&L data from database to lockless storage files"""
+        try:
+            with db_manager.get_connection() as conn:
+                cursor = conn.cursor()
+                # Get all trades with P&L from database
+                cursor.execute("""
+                    SELECT order_id, realized_pnl
+                    FROM trades
+                    WHERE status = 'FILLED' AND order_id IS NOT NULL AND realized_pnl IS NOT NULL
+                """)
+                db_trades = cursor.fetchall()
+
+            updated_count = 0
+            for order_id, realized_pnl in db_trades:
+                # Find corresponding trade file
+                for trade_file in self.trades_dir.glob("*.json"):
+                    try:
+                        with open(trade_file, 'r') as f:
+                            trade_data = json.load(f)
+
+                        if trade_data.get('order_id') == str(order_id):
+                            # Update P&L if different
+                            if trade_data.get('realized_pnl', 0) != realized_pnl:
+                                trade_data['realized_pnl'] = realized_pnl
+
+                                # Write back to file
+                                with open(trade_file, 'w') as f:
+                                    json.dump(trade_data, f, indent=2)
+                                updated_count += 1
+                            break
+                    except Exception as e:
+                        logger.warning(f"Failed to update trade file {trade_file}: {e}")
+
+            logger.info(f"Synced P&L for {updated_count} trades from database")
+            return updated_count
+
+        except Exception as e:
+            logger.error(f"Failed to sync P&L from database: {e}")
+            return 0
 
     def get_storage_stats(self) -> Dict[str, Any]:
         """Get storage statistics"""
