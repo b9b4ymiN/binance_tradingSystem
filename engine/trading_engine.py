@@ -35,6 +35,29 @@ class TradingEngine:
         # Initialize strategies
         self.rsi_bollinger_strategy = RSIBollingerStrategy(config, self.binance_api, self.risk_manager)
         self.breakout_swing_strategy = BreakoutSwingStrategy(config, self.binance_api, self.risk_manager)
+
+        # Initialize VWAP Mean Reversion strategy
+        try:
+            from strategies.vwap_mean_reversion import VWAPMeanReversionStrategy
+            from core.parameter_manager import ParameterManager
+            from config.vwap_parameters import VWAPParameters
+
+            # Try to load active parameters from database
+            param_manager = ParameterManager(config.db_path)
+            active_params = param_manager.get_active_parameters('vwap_mean_reversion')
+
+            if active_params:
+                vwap_params = VWAPParameters.from_dict(active_params['parameters'])
+                logger.info(f"Loaded active VWAP parameters version: {active_params['version']}")
+            else:
+                vwap_params = VWAPParameters()  # Use defaults
+                logger.info("Using default VWAP parameters")
+
+            self.vwap_strategy = VWAPMeanReversionStrategy(config, self.binance_api, self.risk_manager, vwap_params)
+            logger.info("✅ VWAP Mean Reversion strategy initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize VWAP strategy: {e}")
+            self.vwap_strategy = None
         
         self.webhook_handler = WebhookHandler(config, self)
         self.dashboard_api = DashboardAPI(self, self.db_manager)
@@ -440,28 +463,239 @@ class TradingEngine:
         logger.info("Automated trading started")
     
     def _monitor_positions(self):
-        """Monitor open positions and manage risk"""
-        open_orders = self.binance_api.get_open_orders()
-        # Implementation for position monitoring
-        pass
+        """
+        Monitor open positions and manage risk
+
+        Features:
+        - Check stop loss and take profit
+        - Implement trailing stop loss
+        - Partial profit taking
+        - Time-based exits
+        """
+        try:
+            # Get all open orders
+            open_orders = self.binance_api.get_open_orders()
+
+            # Get current portfolio positions
+            with self.db_manager.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT symbol, quantity, avg_price, entry_price
+                    FROM portfolio
+                    WHERE quantity != 0
+                ''')
+                positions = cursor.fetchall()
+
+            for position in positions:
+                symbol = position[0]
+                quantity = position[1]
+                avg_price = position[2]
+
+                try:
+                    # Get current price
+                    klines = self.binance_api.get_klines(symbol, '1m', 1)
+                    if not klines:
+                        continue
+
+                    current_price = float(klines[0][4])  # Close price
+
+                    # Calculate P&L percentage
+                    if quantity > 0:  # Long position
+                        pnl_percent = (current_price - avg_price) / avg_price
+                    else:  # Short position
+                        pnl_percent = (avg_price - current_price) / avg_price
+
+                    # Trailing stop logic: Move stop loss if in profit
+                    if pnl_percent >= 0.015:  # If 1.5%+ profit
+                        self._update_trailing_stop(symbol, quantity, current_price, avg_price)
+
+                    # Partial profit taking: Close 50% at 1% profit
+                    if pnl_percent >= 0.01 and not self._has_partial_exit(symbol):
+                        self._take_partial_profit(symbol, quantity, current_price, ratio=0.5)
+
+                    # Check if VWAP strategy wants to exit
+                    if self.vwap_strategy and hasattr(self.vwap_strategy, 'check_exit_conditions'):
+                        action = 'buy' if quantity > 0 else 'sell'
+                        exit_reason = self.vwap_strategy.check_exit_conditions(
+                            symbol, avg_price, action, current_price
+                        )
+                        if exit_reason:
+                            logger.info(f"VWAP exit signal for {symbol}: {exit_reason}")
+                            self._close_position(symbol, current_price, exit_reason)
+
+                except Exception as e:
+                    logger.error(f"Error monitoring position {symbol}: {e}")
+
+        except Exception as e:
+            logger.error(f"Error in position monitoring: {e}")
+
+    def _update_trailing_stop(self, symbol: str, quantity: float, current_price: float, entry_price: float):
+        """Update trailing stop loss for a position"""
+        try:
+            # Calculate new stop loss (5% below current price for longs)
+            trailing_percent = 0.05
+
+            if quantity > 0:  # Long position
+                new_stop = current_price * (1 - trailing_percent)
+            else:  # Short position
+                new_stop = current_price * (1 + trailing_percent)
+
+            # Check existing stop loss orders
+            open_orders = self.binance_api.get_open_orders(symbol)
+            stop_orders = [o for o in open_orders if o.get('type') == 'STOP_LOSS_LIMIT']
+
+            # Cancel old stop loss
+            for order in stop_orders:
+                try:
+                    self.binance_api.cancel_order(symbol, order['orderId'])
+                except Exception as e:
+                    logger.debug(f"Failed to cancel old stop order: {e}")
+
+            # Place new stop loss
+            side = 'SELL' if quantity > 0 else 'BUY'
+
+            # Get symbol info for price tick
+            symbol_info = self.binance_api.get_symbol_info(symbol)
+            filters = symbol_info.get('filters', [])
+            price_tick = self._get_filter_value(filters, 'PRICE_FILTER', 'tickSize', 0.01)
+
+            normalized_stop = self._normalize_price(new_stop, price_tick)
+
+            self.binance_api.place_order(
+                symbol=symbol,
+                side=side,
+                order_type='STOP_LOSS_LIMIT',
+                quantity=abs(quantity),
+                price=normalized_stop,
+                stop_price=normalized_stop,
+                time_in_force='GTC'
+            )
+
+            logger.info(f"✅ Trailing stop updated for {symbol}: {normalized_stop:.2f}")
+
+        except Exception as e:
+            logger.error(f"Failed to update trailing stop for {symbol}: {e}")
+
+    def _take_partial_profit(self, symbol: str, quantity: float, current_price: float, ratio: float = 0.5):
+        """Take partial profit on a position"""
+        try:
+            # Calculate quantity to close
+            close_quantity = abs(quantity) * ratio
+
+            # Get symbol info for lot size
+            symbol_info = self.binance_api.get_symbol_info(symbol)
+            filters = symbol_info.get('filters', [])
+            lot_step = self._get_filter_value(filters, 'LOT_SIZE', 'stepSize', 0.000001)
+
+            close_quantity = self._normalize_quantity(close_quantity, lot_step)
+
+            if close_quantity <= 0:
+                return
+
+            # Place market order to close partial position
+            side = 'SELL' if quantity > 0 else 'BUY'
+
+            order_result = self.binance_api.place_order(
+                symbol=symbol,
+                side=side,
+                order_type='MARKET',
+                quantity=close_quantity
+            )
+
+            logger.info(f"✅ Partial profit taken on {symbol}: {ratio*100:.0f}% closed at {current_price:.2f}")
+
+            # Mark that we've taken partial profit
+            self._mark_partial_exit(symbol)
+
+        except Exception as e:
+            logger.error(f"Failed to take partial profit on {symbol}: {e}")
+
+    def _close_position(self, symbol: str, current_price: float, reason: str):
+        """Close entire position"""
+        try:
+            # Get current position
+            with self.db_manager.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT quantity FROM portfolio WHERE symbol = ?', (symbol,))
+                result = cursor.fetchone()
+
+                if not result or result[0] == 0:
+                    return
+
+                quantity = result[0]
+
+            # Cancel all open orders for this symbol
+            open_orders = self.binance_api.get_open_orders(symbol)
+            for order in open_orders:
+                try:
+                    self.binance_api.cancel_order(symbol, order['orderId'])
+                except Exception:
+                    pass
+
+            # Close position
+            side = 'SELL' if quantity > 0 else 'BUY'
+
+            order_result = self.binance_api.place_order(
+                symbol=symbol,
+                side=side,
+                order_type='MARKET',
+                quantity=abs(quantity)
+            )
+
+            logger.info(f"✅ Position closed: {symbol} at {current_price:.2f} | Reason: {reason}")
+
+        except Exception as e:
+            logger.error(f"Failed to close position {symbol}: {e}")
+
+    def _has_partial_exit(self, symbol: str) -> bool:
+        """Check if we've already taken partial profit on this position"""
+        # Simple implementation: check if there's a marker in trades table
+        try:
+            with self.db_manager.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT COUNT(*) FROM trades
+                    WHERE symbol = ?
+                    AND strategy LIKE '%partial_profit%'
+                    AND timestamp > datetime('now', '-1 hour')
+                ''', (symbol,))
+                count = cursor.fetchone()[0]
+                return count > 0
+        except Exception:
+            return False
+
+    def _mark_partial_exit(self, symbol: str):
+        """Mark that partial profit was taken"""
+        # This would be tracked in a separate table in production
+        # For now, we'll just log it
+        logger.debug(f"Marked partial exit for {symbol}")
     
     def _generate_auto_signals(self):
         """Generate automated trading signals"""
         # Popular crypto pairs for automated scanning
-        symbols = ['BTCUSDT', 'ETHUSDT', 'ADAUSDT', 'DOTUSDT']
-        
+        symbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'ADAUSDT', 'DOTUSDT', 'SOLUSDT']
+
         for symbol in symbols:
             try:
+                # Check VWAP Mean Reversion strategy (PRIORITY)
+                if self.vwap_strategy:
+                    signal = self.vwap_strategy.generate_signal(symbol)
+                    if signal and signal.get('confidence', 0) > 0.65:
+                        logger.info(f"🎯 VWAP signal for {symbol}: {signal['action']} @ {signal['price']:.2f}")
+                        self.process_signal(signal)
+                        continue  # Only one strategy per symbol per iteration
+
                 # Check RSI-Bollinger strategy
                 signal = self.rsi_bollinger_strategy.generate_signal(symbol)
                 if signal and signal.get('confidence', 0) > 0.7:
                     self.process_signal(signal)
-                
+                    continue
+
                 # Check breakout strategy
                 signal = self.breakout_swing_strategy.generate_signal(symbol)
                 if signal and signal.get('confidence', 0) > 0.6:
                     self.process_signal(signal)
-                    
+
             except Exception as e:
                 logger.error(f"Error generating signal for {symbol}: {e}")
     

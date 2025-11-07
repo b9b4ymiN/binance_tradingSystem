@@ -27,7 +27,7 @@ def load_env_file(path=".env"):
 
 def main():
     """Main application entry point"""
-    
+
     # Load configuration from environment variables
     config = TradingConfig(
         api_key=os.getenv('BINANCE_API_KEY', 'your_api_key_here'),
@@ -35,13 +35,49 @@ def main():
         webhook_secret=os.getenv('WEBHOOK_SECRET', 'your_webhook_secret'),
         use_testnet=True  # Set to False for live trading
     )
-    
+
     # Initialize trading engine
     trading_engine = TradingEngine(config)
-    
+
     # Start automated trading
     trading_engine.start_auto_trading()
-    
+
+    # Start weekly parameter optimization scheduler
+    try:
+        from scheduler.weekly_optimizer import WeeklyOptimizer
+        weekly_optimizer = WeeklyOptimizer(
+            trading_engine=trading_engine,
+            config=config,
+            symbols=['BTCUSDT', 'ETHUSDT', 'BNBUSDT'],
+            optimization_days=90,
+            validation_days=14,
+            min_improvement_threshold=0.05  # Require 5% improvement to update
+        )
+        weekly_optimizer.start()
+        logger.info("✅ Weekly parameter optimizer started (runs every Sunday 00:00 UTC)")
+    except Exception as e:
+        logger.warning(f"Failed to start weekly optimizer: {e}")
+        weekly_optimizer = None
+
+    # Initialize notification system
+    try:
+        from notifications.notification_manager import NotificationManager
+        notifier = NotificationManager(
+            config,
+            telegram_token=os.getenv('TELEGRAM_BOT_TOKEN'),
+            telegram_chat_id=os.getenv('TELEGRAM_CHAT_ID')
+        )
+        # Test notification on startup
+        notifier.send(
+            "System Startup",
+            "🚀 Trading system started successfully!\n\nVWAP Mean Reversion strategy is active with automated parameter optimization.",
+            priority='low'
+        )
+        logger.info("✅ Notification system initialized")
+    except Exception as e:
+        logger.warning(f"Failed to initialize notifications: {e}")
+        notifier = None
+
     # Start webhook server and dashboard API in separate threads
     from threading import Thread
 
@@ -59,16 +95,36 @@ def main():
         webhook_thread.start()
         dashboard_thread.start()
 
-        logger.info("Trading system started successfully")
-        logger.info("Webhook server running on port 5000")
-        logger.info("Dashboard API running on port 5001")
+        logger.info("=" * 80)
+        logger.info("🚀 TRADING SYSTEM STARTED SUCCESSFULLY")
+        logger.info("=" * 80)
+        logger.info("📡 Webhook server: http://0.0.0.0:5000")
+        logger.info("📊 Dashboard API: http://0.0.0.0:5001")
+        logger.info("🎯 Active strategies:")
+        logger.info("   - VWAP Mean Reversion (PRIMARY)")
+        logger.info("   - RSI-Bollinger Scalping")
+        logger.info("   - Breakout Swing Trading")
+        logger.info("📅 Parameter optimization: Every Sunday 00:00 UTC")
+        logger.info("⚠️  Mode: TESTNET" if config.use_testnet else "🔴 Mode: LIVE TRADING")
+        logger.info("=" * 80)
 
         # Keep main thread alive
         webhook_thread.join()
 
     except KeyboardInterrupt:
-        logger.info("Shutting down trading system...")
+        logger.info("\n" + "=" * 80)
+        logger.info("🛑 SHUTTING DOWN TRADING SYSTEM...")
+        logger.info("=" * 80)
         trading_engine.stop_trading()
+        if weekly_optimizer:
+            weekly_optimizer.stop()
+        if notifier:
+            notifier.send(
+                "System Shutdown",
+                "Trading system has been stopped.",
+                priority='normal'
+            )
+        logger.info("✅ Shutdown complete")
 
 
 if __name__ == "__main__":
